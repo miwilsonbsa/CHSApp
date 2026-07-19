@@ -131,4 +131,18 @@ for name, file_content, file_sha in uploads:
         up_url = f"{upload_url}/{file_sha}"
         up_req = urllib.request.Request(
             up_url, data=file_content,
-            headers={'Authorization': f'Beare
+            headers={'Authorization': f'Bearer {token}',
+                     'Content-Type': 'application/octet-stream'},
+            method='POST')
+        try:
+            with urllib.request.urlopen(up_req) as r:
+                r.read()
+        except urllib.error.HTTPError as e:
+            print(f"HTTP {e.code}: {e.read().decode()}")
+            raise
+
+# ── 4. Finalize the version and release it ─────────────────────────────────────
+print("4/4  Finalizing & releasing...")
+api('PATCH', f'{BASE}/{version_name}?update_mask=status', {'status': 'FINALIZED'})
+api('POST', f'{BASE}/sites/{SITE_ID}/releases?versionName={version_name}')
+print(f"Deployed! https://{SITE_ID}.web.app/  (version {version_id})")

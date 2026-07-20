@@ -664,6 +664,30 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
 </div>
 
+<!-- FEEDBACK MODAL -->
+<div class="modal-overlay" id="feedbackModal">
+  <div class="modal" style="max-height:85vh;overflow-y:auto">
+    <div class="modal-handle"></div>
+    <div class="modal-title">App Feedback</div>
+    <div class="modal-sub">Spot a wrong time, a bug, or have an idea? Your feedback goes straight to camp leadership.</div>
+    <label class="form-label">Type</label>
+    <select class="name-picker" id="feedbackCategory">
+      <option value="Correction">Something is wrong / needs fixing</option>
+      <option value="Bug">App bug</option>
+      <option value="Suggestion">Suggestion / idea</option>
+      <option value="Other">Other</option>
+    </select>
+    <label class="form-label" style="margin-top:10px">Your Name <span style="color:#cc3300">*</span></label>
+    <input type="text" class="name-picker" id="feedbackName" placeholder="Your first and last name" required style="width:100%;padding:8px 12px;font-size:14px">
+    <label class="form-label" style="margin-top:10px">Your Troop <span style="color:#cc3300">*</span></label>
+    <select class="name-picker" id="feedbackTroop" required><option value="">Select your troop...</option></select>
+    <label class="form-label" style="margin-top:10px">Message <span style="color:#cc3300">*</span></label>
+    <textarea class="testimonial-textarea" id="feedbackText" placeholder="Tell us what's wrong or what would make the app better..."></textarea>
+    <button class="submit-btn" id="feedbackSendBtn" onclick="sendFeedback()">Send Feedback 💬</button>
+    <button class="modal-close" onclick="closeFeedbackModal()">Cancel</button>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <!-- BOTTOM TAB BAR -->
@@ -701,6 +725,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div class="more-item" onclick="moreTab('skills')"><div class="more-item-icon">🪢</div><div class="more-item-label">Skills</div></div>
       <div class="more-item" onclick="moreTab('saga')"><div class="more-item-icon">📿</div><div class="more-item-label">SAGA</div></div>
       <div class="more-item" onclick="moreTab('resources')"><div class="more-item-icon">📁</div><div class="more-item-label">Resources</div></div>
+      <div class="more-item" onclick="closeMoreMenu();openFeedbackModal()"><div class="more-item-icon">💬</div><div class="more-item-label">Feedback</div></div>
     </div>
   </div>
 </div>
@@ -2427,17 +2452,19 @@ const SESSION_UNITS = {
 // Track unique units from Firestore roster (overrides fallback when synced)
 let sessionUnits=[];
 function populateTroopPicker(){
-  const sel=document.getElementById('appreciationTroop');
-  if(!sel)return;
-  while(sel.options.length>1)sel.remove(1);
   const units=[...new Set(sessionUnits.length ? sessionUnits : (SESSION_UNITS[sessionKey()]||[]))].sort(byName());
-  units.forEach(u=>{
-    const o=document.createElement('option');
-    // Extract just troop type + number (e.g. "Troop 117 B" from "Coyote Creek Troop 117 B")
-    const short=u.replace(/^.*?(Troop|Pack|Crew)\s*/i,'$1 ');
-    o.value=u;
-    o.textContent=short;
-    sel.appendChild(o);
+  ['appreciationTroop','feedbackTroop'].forEach(id=>{
+    const sel=document.getElementById(id);
+    if(!sel)return;
+    while(sel.options.length>1)sel.remove(1);
+    units.forEach(u=>{
+      const o=document.createElement('option');
+      // Extract just troop type + number (e.g. "Troop 117 B" from "Coyote Creek Troop 117 B")
+      const short=u.replace(/^.*?(Troop|Pack|Crew)\s*/i,'$1 ');
+      o.value=u;
+      o.textContent=short;
+      sel.appendChild(o);
+    });
   });
 }
 
@@ -2458,6 +2485,38 @@ function closeSessionModal(){document.getElementById('sessionModal').classList.r
 // ── Sync modal ──
 function openSyncModal(){const ss=document.getElementById('syncSession');if(ss)ss.textContent=currentSession.name;document.getElementById('syncModal').classList.add('open');}
 function closeSyncModal(){document.getElementById('syncModal').classList.remove('open');}
+
+// ── Feedback modal ──
+// Writes to sessions/{sk}/feedback — same pattern as testimonials.
+// Email notifications come from the same external script that emails
+// new appreciations (extend it to watch the feedback collection).
+function openFeedbackModal(){document.getElementById('feedbackModal').classList.add('open');}
+function closeFeedbackModal(){document.getElementById('feedbackModal').classList.remove('open');}
+async function sendFeedback(){
+  const name=document.getElementById('feedbackName').value.trim();
+  const troop=document.getElementById('feedbackTroop').value;
+  const text=document.getElementById('feedbackText').value.trim();
+  const category=document.getElementById('feedbackCategory').value;
+  if(!name){showToast('Please enter your name');return;}
+  if(!troop){showToast('Please select your troop');return;}
+  if(!text){showToast('Please enter a message');return;}
+  const btn=document.getElementById('feedbackSendBtn');
+  btn.disabled=true;btn.textContent='Sending...';
+  try{
+    const user=auth.currentUser||await ensureAuth();
+    await db.collection('sessions').doc(sessionKey()).collection('feedback').add({
+      category,author:name,troop,text,session:currentSession.name,
+      uid:user?user.uid:null,
+      ts:firebase.firestore.FieldValue.serverTimestamp()
+    });
+    document.getElementById('feedbackText').value='';
+    document.getElementById('feedbackName').value='';
+    document.getElementById('feedbackTroop').value='';
+    closeFeedbackModal();
+    showToast('Feedback sent — thank you! 💬');
+  }catch(e){console.error('Feedback send failed:',e);showToast('Send failed — try again');}
+  finally{btn.disabled=false;btn.textContent='Send Feedback 💬';}
+}
 
 // ── Leaflet Interactive Map ──
 const MAP_W=1700, MAP_H=2200;

@@ -907,6 +907,7 @@ const SCHEDULE = {
     {time:"12:00",ampm:"PM",title:"Steward Bell",detail:"Table stewards report to dining hall · Set tables",tag:"youth"},
     {time:"12:25",ampm:"PM",title:"Leaders Lunch",detail:"Trail to Eagle · Leaders & Commissioners",tag:"adult"},
     {time:"12:30",ampm:"PM",title:"Lunch",detail:"Dining Hall · Family-style",tag:"meal"},
+    {time:"1:15",ampm:"PM",title:"Meet & Greet: Chief Scout Executive Mike Surbaugh",detail:"Special round table conversation with the 13th Chief Scout Executive · Adult Education · 1:15–2:00 PM",tag:"adult",weeks:["Week 6"]},
     {time:"1:30",ampm:"PM",title:"Merit Badge Block 4 / Clavey Overnighter Departs",detail:"Clavey backpacking/bike trip departs · No daily hike/bike today",tag:"youth"},
     {time:"1:30",ampm:"PM",title:"Open Program & Skills of the Day",detail:"All areas open · See Skills tab · Disc Golf · Fry Bread · Last day open climb & shoot",tag:"open"},
     {time:"9:00",ampm:"AM",title:"Handicraft Drop-In: Fingerprinting",detail:"Drop-in merit badge · Handicraft area · Runs all day · No sign-up needed",tag:"youth"},
@@ -1830,7 +1831,7 @@ function renderNowBar(){
   let inner='';
   if(viewingToday){
     const nowMin=c.hour*60+c.minute;
-    const items=(SRC[todayKey]||[]).map(i=>({...i,_m:toMinutes(i.time,i.ampm)})).sort((a,b)=>a._m-b._m);
+    const items=(SRC[todayKey]||[]).filter(it=>!it.weeks||it.weeks.includes(currentSession.name)).map(i=>({...i,_m:toMinutes(i.time,i.ampm)})).sort((a,b)=>a._m-b._m);
     let cur=null,nxt=null;
     for(let i=0;i<items.length;i++){if(items[i]._m<=nowMin)cur=items[i];else{nxt=items[i];break;}}
     const curHtml=cur?`<div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:700;color:#A8C49A;letter-spacing:.5px">HAPPENING NOW</div><div style="font-size:15px;font-weight:700;color:#fff;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cur.title}</div><div style="font-size:11px;color:#D8E4CC;margin-top:1px">${cur.time} ${cur.ampm}</div></div>`:`<div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:700;color:#A8C49A;letter-spacing:.5px">QUIET HOURS</div><div style="font-size:15px;font-weight:700;color:#fff;margin-top:2px">Day hasn't started yet</div></div>`;
@@ -1852,7 +1853,7 @@ function renderSchedule(){
   renderNowBar();
   const sk=SKILLS.find(s=>s.day===currentDay);
   const SRC=isEagleSession()?EAGLE_SCHEDULE:SCHEDULE;
-  const items=SRC[currentDay]||[];
+  const items=(SRC[currentDay]||[]).filter(it=>!it.weeks||it.weeks.includes(currentSession.name));
   const todayKey=DAYS[pacificNow().getDay()];
   const isToday=currentDay===todayKey;
   const nowMin=isToday?(pacificNow().getHours()*60+pacificNow().getMinutes()):0;

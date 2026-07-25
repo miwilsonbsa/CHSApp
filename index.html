@@ -283,7 +283,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .fc-hour-temp{font-size:15px;font-weight:800;color:var(--text-dark)}
 .fc-hour-pop{font-size:10px;color:#0277BD;font-weight:700;margin-top:2px;min-height:13px}
 .fc-daily{background:var(--white);border-radius:12px;box-shadow:0 1px 6px var(--shadow);overflow:hidden}
-.fc-day{display:flex;align-items:center;padding:11px 14px;border-bottom:1px solid var(--border)}
+.fc-day{display:flex;align-items:center;padding:11px 14px;border-bottom:1px solid rgba(0,0,0,.07)}
 .fc-day:last-child{border-bottom:none}
 .fc-day-name{flex:0 0 46px;font-size:13px;font-weight:700;color:var(--text-dark)}
 .fc-day-icon{flex:0 0 30px;font-size:22px;text-align:center;line-height:1}
@@ -293,6 +293,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .fc-day-hi{color:var(--text-dark)}
 .fc-day-lo{color:var(--text-light);margin-left:8px}
 .fc-credit{font-size:10px;color:var(--text-light);text-align:right;margin:6px 2px 0;opacity:.7}
+/* Home-screen weather bar */
+.home-wx{background:linear-gradient(135deg,#1A73B8 0%,#0D4F8B 60%,#2D4A2D 100%);border-radius:14px;margin-bottom:12px;overflow:hidden;box-shadow:0 3px 14px rgba(0,0,0,.18);cursor:pointer;-webkit-tap-highlight-color:transparent}
+.home-wx-head{display:flex;align-items:center;justify-content:space-between;padding:11px 14px}
+.home-wx-left{display:flex;align-items:center;gap:12px;min-width:0}
+.home-wx-icon{font-size:32px;line-height:1;flex-shrink:0;filter:drop-shadow(0 2px 6px rgba(0,0,0,.25))}
+.home-wx-temp{font-size:22px;font-weight:900;color:#fff;line-height:1.1;letter-spacing:-.5px}
+.home-wx-cond{font-size:13px;font-weight:600;color:rgba(255,255,255,.9);margin-left:8px;letter-spacing:0}
+.home-wx-sub{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:rgba(255,255,255,.6);margin-top:3px}
+.home-wx-toggle{flex-shrink:0;display:flex;align-items:center;gap:5px;color:rgba(255,255,255,.85);font-size:11px;font-weight:700}
+.home-wx-chevron{display:inline-block;transition:transform .2s;font-size:14px}
+.home-wx.open .home-wx-chevron{transform:rotate(180deg)}
+.home-wx-body{padding:0 12px 12px;background:var(--cream)}
+.home-wx-body .fc-title:first-child{margin-top:12px}
+.home-wx-link{margin-top:12px;text-align:center;background:var(--forest);color:#fff;font-size:13px;font-weight:700;padding:11px;border-radius:10px;cursor:pointer}
 </style>
 </head>
 <body>
@@ -374,6 +388,22 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
   <!-- SCHEDULE -->
   <div id="panel-schedule" class="panel active">
+    <div id="homeWxBar" class="home-wx" onclick="toggleHomeWx()">
+      <div class="home-wx-head">
+        <div class="home-wx-left">
+          <span id="homeWxIcon" class="home-wx-icon">🌤️</span>
+          <div style="min-width:0">
+            <div><span class="home-wx-temp"><span id="homeWxTemp">--</span>&deg;</span><span id="homeWxCond" class="home-wx-cond">Loading…</span></div>
+            <div class="home-wx-sub" id="homeWxSub">CHS Weather Station · Health Lodge</div>
+          </div>
+        </div>
+        <div class="home-wx-toggle"><span>Forecast</span><span class="home-wx-chevron">▾</span></div>
+      </div>
+      <div id="homeWxBody" class="home-wx-body" style="display:none">
+        <div id="homeForecastContent"></div>
+        <div class="home-wx-link" onclick="event.stopPropagation();goWeatherTab()">View full weather &amp; conditions →</div>
+      </div>
+    </div>
     <div class="session-dates-bar" id="sessionDatesBar" style="display:none">
       <div>
         <div class="session-dates-name" id="sessionDatesName">Week 1</div>
@@ -631,7 +661,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div style="padding:16px">
         <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:rgba(255,255,255,0.7);margin-bottom:4px">Live from Camp</div>
         <div style="font-size:17px;font-weight:800;color:var(--white);margin-bottom:4px">Camp Hi-Sierra Weather</div>
-        <div style="font-size:12px;color:rgba(255,255,255,0.75);line-height:1.5">Real-time conditions from the on-site weather station · Long Barn, CA · ~5,000 ft</div>
+        <div style="font-size:12px;color:rgba(255,255,255,0.75);line-height:1.5">Real-time conditions from our CHS weather station at the Health Lodge · Long Barn, CA · ~5,000 ft</div>
       </div>
     </div>
     <div id="weatherContent">
@@ -1787,6 +1817,10 @@ setInterval(fetchBulletins,5*60*1000);
 // ─────────────────────────────────────────────────────────────
 async function init(){
   updateSessionBadge();buildDaySelectors();renderSchedule();renderMenu();renderMeritBadges();renderSkills();renderOpenProgramBanner();renderStaff();populateNamePicker();fetchBulletins();renderCampsites();
+  // Deferred so the forecast module's top-level const/let (FC_URL, fcData,
+  // homeWxFromStation) are initialized before updateHomeWx() runs — otherwise
+  // calling it here throws a temporal-dead-zone ReferenceError and aborts init().
+  setTimeout(function(){try{updateHomeWx();setInterval(updateHomeWx,300000);}catch(e){console.warn('home weather init error:',e);}},0);
 
   // Open to all — sign in anonymously and start immediately
   await ensureAuth();
@@ -2741,18 +2775,21 @@ const WX_URL=`https://api.ambientweather.net/v1/devices?applicationKey=${WX_APP_
 let wxRefreshTimer=null;
 
 function fetchWeather(){
-  fetch(WX_URL)
-    .then(r=>{if(!r.ok)throw new Error(r.status);return r.json();})
+  const ctrl=new AbortController();
+  const timer=setTimeout(()=>ctrl.abort(),8000);
+  fetch(WX_URL,{signal:ctrl.signal})
+    .then(r=>{clearTimeout(timer);if(!r.ok)throw new Error(r.status);return r.json();})
     .then(data=>{
       if(!data||!data.length||!data[0].lastData){throw new Error('No device data');}
       renderWeather(data[0]);
     })
     .catch(err=>{
+      clearTimeout(timer);
       console.warn('Weather fetch error:',err);
       document.getElementById('weatherContent').innerHTML=`
         <div class="empty-state"><div class="empty-icon">⚠️</div>
-        <div class="empty-label">Weather Unavailable</div>
-        <div class="empty-sub">Could not reach the camp weather station. Pull down to retry.</div></div>`;
+        <div class="empty-label">Station Offline</div>
+        <div class="empty-sub">Couldn't reach the CHS weather station at the Health Lodge. The forecast below is still available. Pull down to retry.</div></div>`;
     });
 }
 
@@ -2898,11 +2935,12 @@ function renderWeather(device){
 // ╚══════════════════════════════════════════════════════════════╝
 const FC_LAT=38.1529, FC_LON=-120.0457;
 const FC_URL=`https://api.open-meteo.com/v1/forecast?latitude=${FC_LAT}&longitude=${FC_LON}`
+  +`&current=temperature_2m,weather_code`
   +`&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max`
   +`&hourly=temperature_2m,weather_code,precipitation_probability`
   +`&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch`
   +`&timezone=America%2FLos_Angeles&forecast_days=7`;
-let fcLoaded=false;
+let fcData=null;
 
 function wmoInfo(code){
   const m={
@@ -2920,21 +2958,24 @@ function wmoInfo(code){
   return m[code]||['🌡️','—'];
 }
 
-function fetchForecast(){
-  const el=document.getElementById('forecastContent');
+function fetchForecast(targetId){
+  targetId=targetId||'forecastContent';
+  const el=document.getElementById(targetId);
   if(!el)return;
-  if(!fcLoaded){el.innerHTML=`<div class="fc-title">Forecast</div><div style="padding:14px;color:var(--text-light);font-size:13px">Loading forecast…</div>`;}
+  if(fcData){renderForecast(fcData,targetId);return;} // use cached data
+  el.innerHTML=`<div class="fc-title">Forecast</div><div style="padding:14px;color:var(--text-light);font-size:13px">Loading forecast…</div>`;
   fetch(FC_URL)
     .then(r=>{if(!r.ok)throw new Error(r.status);return r.json();})
-    .then(data=>{renderForecast(data);fcLoaded=true;})
+    .then(data=>{fcData=data;renderForecast(data,targetId);})
     .catch(err=>{
       console.warn('Forecast fetch error:',err);
-      if(!fcLoaded){el.innerHTML=`<div class="fc-title">Forecast</div><div style="padding:14px;color:var(--text-light);font-size:13px">Forecast unavailable right now. Pull down to retry.</div>`;}
+      el.innerHTML=`<div class="fc-title">Forecast</div><div style="padding:14px;color:var(--text-light);font-size:13px">Forecast unavailable right now. Pull down to retry.</div>`;
     });
 }
 
-function renderForecast(data){
-  const el=document.getElementById('forecastContent');
+function renderForecast(data,targetId){
+  targetId=targetId||'forecastContent';
+  const el=document.getElementById(targetId);
   if(!el||!data)return;
   const daily=data.daily, hourly=data.hourly;
 
@@ -2975,6 +3016,78 @@ function renderForecast(data){
     +(dailyHtml?`<div class="fc-title">7-Day Forecast</div><div class="fc-daily">${dailyHtml}</div>`:'')
     +`<div class="fc-credit">Forecast by Open-Meteo</div>`;
 }
+
+// ── Home-screen weather bar ───────────────────────────────────
+function wxLabel(temp,rainHr,windGust,solar){
+  if(rainHr!=='--'&&rainHr>0.05)return'Rain';
+  if(windGust!=='--'&&windGust>=30)return'Windy';
+  if(temp==='--')return'—';
+  if(temp<=35)return'Freezing';
+  if(temp<=50)return'Cold';
+  if(temp<=70)return(solar!=='--'&&solar>200)?'Sunny':'Partly cloudy';
+  if(temp<=85)return(solar!=='--'&&solar>300)?'Sunny':'Mild';
+  return'Hot';
+}
+
+let homeWxFromStation=false;
+
+function setHomeWx(temp,emoji,label,sub){
+  const iconEl=document.getElementById('homeWxIcon');
+  const tEl=document.getElementById('homeWxTemp');
+  const cEl=document.getElementById('homeWxCond');
+  const sEl=document.getElementById('homeWxSub');
+  if(iconEl)iconEl.textContent=emoji;
+  if(tEl)tEl.textContent=temp;
+  if(cEl)cEl.textContent=label;
+  if(sEl&&sub)sEl.textContent=sub;
+}
+
+function updateHomeWx(){
+  homeWxFromStation=false;
+  // 1) Reliable source: Open-Meteo current (also caches forecast for the accordion)
+  fetch(FC_URL)
+    .then(r=>{if(!r.ok)throw new Error(r.status);return r.json();})
+    .then(data=>{
+      fcData=data;
+      const c=data.current;
+      if(c&&!homeWxFromStation){
+        const info=wmoInfo(c.weather_code);
+        setHomeWx(Math.round(c.temperature_2m),info[0],info[1],'Long Barn · local forecast');
+      }
+    })
+    .catch(err=>{console.warn('Open-Meteo current error:',err);});
+
+  // 2) Preferred source: CHS station — overrides if it answers within 8s
+  const ctrl=new AbortController();
+  const timer=setTimeout(()=>ctrl.abort(),8000);
+  fetch(WX_URL,{signal:ctrl.signal})
+    .then(r=>{clearTimeout(timer);if(!r.ok)throw new Error(r.status);return r.json();})
+    .then(data=>{
+      if(!data||!data.length||!data[0].lastData)throw new Error('no data');
+      const d=data[0].lastData;
+      if(d.tempf===undefined)throw new Error('no temp');
+      const temp=Math.round(d.tempf);
+      const uv=d.uv!==undefined?d.uv:'--';
+      const rainHr=d.hourlyrainin!==undefined?d.hourlyrainin:'--';
+      const windGust=d.windgustmph!==undefined?Math.round(d.windgustmph):'--';
+      const solar=d.solarradiation!==undefined?Math.round(d.solarradiation):'--';
+      const cond=wxCondition(temp,uv,rainHr,windGust,solar);
+      homeWxFromStation=true;
+      setHomeWx(temp,cond.emoji,wxLabel(temp,rainHr,windGust,solar),'CHS Station · Health Lodge');
+    })
+    .catch(err=>{clearTimeout(timer);console.warn('Station unavailable, using forecast:',err);});
+}
+
+function toggleHomeWx(){
+  const bar=document.getElementById('homeWxBar');
+  const body=document.getElementById('homeWxBody');
+  if(!bar||!body)return;
+  const isOpen=body.style.display!=='none';
+  if(isOpen){body.style.display='none';bar.classList.remove('open');}
+  else{body.style.display='block';bar.classList.add('open');fetchForecast('homeForecastContent');}
+}
+
+function goWeatherTab(){switchTab('weather');}
 </script>
 
 <!-- ════════════════════════════════════════════════════════════════════════════
